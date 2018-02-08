@@ -8,12 +8,15 @@ import com.google.gson.annotations.SerializedName;
  */
 
 public class ApiResponse {
+
     @SerializedName("base")
     @Expose
     private String base;
+
     @SerializedName("date")
     @Expose
     private String date;
+
     @SerializedName("rates")
     @Expose
     private RateObject rates;

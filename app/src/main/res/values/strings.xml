@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">FintechSuccess</string>
+    <string name="from_currency">From currency</string>
+    <string name="to_currency">To currency</string>
+    <string name="show_exchange_rate">Show Exchange Rate</string>
+    <string name="exchange_rate">Exchange rate: %1$.3f</string>
 </resources>

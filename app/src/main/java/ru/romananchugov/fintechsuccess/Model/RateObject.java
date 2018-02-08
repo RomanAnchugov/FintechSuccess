@@ -6,13 +6,13 @@ package ru.romananchugov.fintechsuccess.Model;
 
 public class RateObject {
 
-        public RateObject(String name, double rate) {
-            this.name = name;
-            this.rate = rate;
-        }
+    private String name;
+    private double rate;
 
-        String name;
-        double rate;
+    public RateObject(String name, double rate) {
+        this.name = name;
+        this.rate = rate;
+    }
 
     public String getName() {
         return name;

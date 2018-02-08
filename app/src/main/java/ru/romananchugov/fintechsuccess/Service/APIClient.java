@@ -19,7 +19,6 @@ public class APIClient {
     private static final String BASE_URL = "http://api.fixer.io/";
 
     public interface APIInterface {
-
         @GET("latest")
         Call<ApiResponse> getJson(@Query("base") String base, @Query("symbols") String symbols);
     }
@@ -28,11 +27,11 @@ public class APIClient {
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeAdapter(RateObject.class, new RatesDeserializer());
 
-
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create(gsonBuilder.create()))
                 .build();
+
         return retrofit.create(APIInterface.class);
     }
 
