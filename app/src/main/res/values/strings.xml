@@ -4,4 +4,5 @@
     <string name="to_currency">To currency</string>
     <string name="show_exchange_rate">Show Exchange Rate</string>
     <string name="exchange_rate">Exchange rate: %1$.3f</string>
+    <string name="pref_key">PREFERENCES</string>
 </resources>
