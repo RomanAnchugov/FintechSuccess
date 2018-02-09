@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -8,55 +8,67 @@
     android:orientation="vertical"
     android:padding="10dp"
     tools:context="ru.romananchugov.fintechsuccess.Presenter.MainActivity">
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/linearLayout">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/from_currency"
+            tools:layout_editor_absoluteX="7dp"
+            android:textColor="@android:color/black"
+            android:textSize="20sp"
+            tools:layout_editor_absoluteY="5dp" />
 
-    <TextView
+        <Spinner
+            android:layout_margin="10dp"
+            android:id="@+id/spinner_from_currency"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/drop_down"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/to_currency"
+            tools:layout_editor_absoluteX="7dp"
+            android:textColor="@android:color/black"
+            android:textSize="20sp"
+            tools:layout_editor_absoluteY="5dp" />
+
+        <Spinner
+            android:layout_margin="10dp"
+            android:id="@+id/spinner_to_currency"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/drop_down"/>
+
+        <TextView
+            android:id="@+id/text_view_answer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            tools:layout_editor_absoluteX="7dp"
+            android:textColor="@android:color/black"
+            android:textSize="20sp"
+            tools:layout_editor_absoluteY="5dp" />
+
+        <Button
+            android:id="@+id/button_execute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/show_exchange_rate"/>
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/from_currency"
-        tools:layout_editor_absoluteX="7dp"
-        android:textColor="@android:color/black"
-        android:textSize="20sp"
-        tools:layout_editor_absoluteY="5dp" />
-
-    <Spinner
-        android:layout_margin="10dp"
-        android:id="@+id/spinner_from_currency"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:entries="@array/drop_down"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/to_currency"
-        tools:layout_editor_absoluteX="7dp"
-        android:textColor="@android:color/black"
-        android:textSize="20sp"
-        tools:layout_editor_absoluteY="5dp" />
-
-    <Spinner
-        android:layout_margin="10dp"
-        android:id="@+id/spinner_to_currency"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:entries="@array/drop_down"/>
-
-    <TextView
-        android:id="@+id/text_view_answer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="10dp"
-        tools:layout_editor_absoluteX="7dp"
-        android:textColor="@android:color/black"
-        android:textSize="20sp"
-        tools:layout_editor_absoluteY="5dp" />
-
-    <Button
-        android:id="@+id/button_execute"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/show_exchange_rate"/>
+        android:layout_below="@+id/linearLayout"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="50dp" />
 
 
-
-</LinearLayout>
+</RelativeLayout>

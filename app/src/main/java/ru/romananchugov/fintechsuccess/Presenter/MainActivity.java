@@ -1,12 +1,16 @@
 package ru.romananchugov.fintechsuccess.Presenter;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -29,6 +33,7 @@ import ru.romananchugov.fintechsuccess.Model.DataStorageObject;
 import ru.romananchugov.fintechsuccess.R;
 import ru.romananchugov.fintechsuccess.Service.APIClient;
 
+@SuppressLint("StaticFieldLeak")
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -37,6 +42,8 @@ public class MainActivity extends AppCompatActivity {
     private Spinner currencyToSpinner;
     private TextView answerTextView;
     private Button showExchangeRateButton;
+    private ProgressBar progressBar;
+
     private String[] list;//list of dropdown
     private String currencyFrom;
     private String currentTo;
@@ -93,43 +100,132 @@ public class MainActivity extends AppCompatActivity {
         showExchangeRateButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String file = readFile(dataPath);
-
-                //checking existence and first launch
-                if(file == null && currencyFrom != null && currentTo != null && !currencyFrom.equals(currentTo)){
-                    Log.i(TAG, "onClick: first launch - create new file");
-                    makeRequest();
-                }else{
-                    Log.i(TAG, "onClick: file is existing");
-                    ArrayList<DataStorageObject> list = new Gson().fromJson(file, typeOfData);
-
-                    if (list != null) {
-                        for(DataStorageObject obj: list){
-                            if(obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currentTo)){
-                                Log.i(TAG, "onClick: found concrete item in file");
-
-                                //up-to-currentDate checking
-                                if(!obj.getDate().equals(currentDate)){
-                                    Log.i(TAG, "onClick: found out-of-currentDate item, deleted them and load new - " + currentDate);
-                                    list.remove(obj);
-                                    saveFile(dataPath, new Gson().toJson(list));
-                                    makeRequest();
-                                }else{//everything correct
-                                    Log.i(TAG, "onClick: found correct fresh item, don't need to load new");
-                                    answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
-                                }
-                                return;
-                            }
-                        }
-                    }
-
-                    //load new element
-                    Log.i(TAG, "onClick: didn't find any coincidences in file, load new");
-                    makeRequest();
-                }
+                new AsyncAnalyzing().execute();
             }
         });
 
+        progressBar = findViewById(R.id.progress_bar);
+        progressBar.setVisibility(View.GONE);
+
+    }
+
+    private class AsyncAnalyzing extends AsyncTask<Void, Void, Void>{
+
+        @Override
+        protected void onPreExecute() {
+            if(progressBar.getVisibility() == View.GONE) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            Log.i(TAG, "doInBackground: async analise of file existing and first launch, etc.");
+            
+            String file = readFile(dataPath);
+
+            //checking existence and first launch
+            if(file == null && currencyFrom != null && currentTo != null && !currencyFrom.equals(currentTo)){
+                Log.i(TAG, "onClick: first launch - create new file");
+                makeRequest();
+            }else{
+                Log.i(TAG, "onClick: file is existing");
+                ArrayList<DataStorageObject> list = new Gson().fromJson(file, typeOfData);
+
+                if (list != null) {
+                    //finding coincidence in file
+                    for(DataStorageObject obj: list){
+                        if(obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currentTo)){
+                            Log.i(TAG, "onClick: found concrete item in file");
+
+                            //up-to-currentDate checking
+                            if(!obj.getDate().equals(currentDate)){
+                                Log.i(TAG, "onClick: found out-of-currentDate item, deleted them and load new - " + currentDate);
+                                list.remove(obj);
+                                saveFile(dataPath, new Gson().toJson(list));
+                                makeRequest();
+                            }else{//everything correct
+                                Log.i(TAG, "onClick: found correct fresh item, don't need to load new");
+                                answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
+                            }
+                            return null;
+                        }
+                    }
+                }
+
+                //load new element
+                Log.i(TAG, "onClick: didn't find any coincidences in file, load new");
+                makeRequest();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            //fake delay
+           new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    progressBar.setVisibility(View.GONE);
+                }
+            }, 1200);
+
+        }
+    }
+
+    private class AsyncUpdate extends AsyncTask<Response<ApiResponse>, Void, Void>{
+
+        @Override
+        protected void onPreExecute() {
+            if(progressBar.getVisibility() == View.GONE) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
+        }
+
+        @Override
+        protected Void doInBackground(Response<ApiResponse>[] responses) {
+            Log.i(TAG, "doInBackground: async set-up new info");
+            Response<ApiResponse> response = responses[0];
+
+            answerTextView.setText(getResources().getString(R.string.exchange_rate,
+                               response.body().getRates().getRate()));
+
+            String file = readFile(dataPath);
+            ArrayList arrayList;
+            //create new obj for stored data
+            DataStorageObject dataStorageObject =
+                    new DataStorageObject(response.body().getBase() + ""
+                            , response.body().getRates().getName() + ""
+                            ,  currentDate
+                            , response.body().getRates().getRate());
+
+            //checking existence and first launch
+            if(file == null){
+                arrayList = new ArrayList();
+                arrayList.add(dataStorageObject);
+                String text = new Gson().toJson(arrayList);
+                saveFile(getString(R.string.pref_path), text);
+                Log.i(TAG, "onResponse: created new file with - " + text);
+            }else{
+                arrayList = new Gson().fromJson(file, typeOfData);
+                arrayList.add(dataStorageObject);
+                String text = new Gson().toJson(arrayList);
+                saveFile(getString(R.string.pref_path), text);
+                Log.i(TAG, "onResponse: added to existing file - " + text);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            //fake delay
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    progressBar.setVisibility(View.GONE);
+                }
+            }, 1200);
+        }
     }
 
     public void makeRequest(){
@@ -140,33 +236,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(Call<ApiResponse> call, Response<ApiResponse> response) {
                         Log.i(TAG, "onResponse: loaded new element");
-
-                        answerTextView.setText(getResources().getString(R.string.exchange_rate,
-                                response.body().getRates().getRate()));
-
-                        String file = readFile(dataPath);
-                        ArrayList arrayList;
-                        //create new obj for stored data
-                        DataStorageObject dataStorageObject =
-                                new DataStorageObject(response.body().getBase() + ""
-                                        , response.body().getRates().getName() + ""
-                                        ,  currentDate
-                                        , response.body().getRates().getRate());
-
-                        //checking existence and first launch
-                        if(file == null){
-                            arrayList = new ArrayList();
-                            arrayList.add(dataStorageObject);
-                            String text = new Gson().toJson(arrayList);
-                            saveFile(getString(R.string.pref_path), text);
-                            Log.i(TAG, "onResponse: created new file with - " + text);
-                        }else{
-                            arrayList = new Gson().fromJson(file, typeOfData);
-                            arrayList.add(dataStorageObject);
-                            String text = new Gson().toJson(arrayList);
-                            saveFile(getString(R.string.pref_path), text);
-                            Log.i(TAG, "onResponse: added to existing file - " + text);
-                        }
+                        
+                        new AsyncUpdate().execute(response);
                     }
 
                     @Override
