@@ -100,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         showExchangeRateButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                Log.i(TAG, "onClick: click!");
                 new AsyncAnalyzing().execute();
             }
         });
@@ -128,33 +129,21 @@ public class MainActivity extends AppCompatActivity {
             if(file == null && currencyFrom != null && currencyTo != null && !currencyFrom.equals(currencyTo)){
                 Log.i(TAG, "onClick: first launch - create new file");
                 makeRequest();
-            }else if(!currencyFrom.equals(currencyTo)){
+            }//file already exist
+            else if(!currencyFrom.equals(currencyTo)){
                 Log.i(TAG, "onClick: file is existing");
+
                 ArrayList<DataStorageObject> list = new Gson().fromJson(file, typeOfData);
 
-                if (list != null) {
-                    //finding coincidence in file
-                    for(DataStorageObject obj: list){
-                        if(obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currencyTo)){
-                            Log.i(TAG, "onClick: found concrete item in file");
+                DataStorageObject obj = findCoincidence(list);
 
-                            //up-to-currentDate checking
-                            if(!obj.getDate().equals(currentDate)){
-                                Log.i(TAG, "onClick: found out-of-currentDate item, deleted them and load new - " + currentDate);
-                                list.remove(obj);
-                                saveFile(dataPath, new Gson().toJson(list));
-                                makeRequest();
-                            }else{//everything correct
-                                Log.i(TAG, "onClick: found correct fresh item, don't need to load new");
-                                return obj;
-                            }
-                            return null;
-                        }
-                    }
+                //found coincidence
+                if(obj != null){
+                    return obj;
                 }
 
-                //load new element
-                Log.i(TAG, "onClick: didn't find any coincidences in file, load new");
+                //load new element, if no coincidence
+                Log.i(TAG, "doInBackground: didn't find any coincidences in file, load new");
                 makeRequest();
             }
             return null;
@@ -166,12 +155,14 @@ public class MainActivity extends AppCompatActivity {
                 answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
                 progressBar.setVisibility(View.GONE);
             }
-            if(currencyFrom.equals(currencyTo)){
+            else if(currencyFrom.equals(currencyTo)){
                 progressBar.setVisibility(View.GONE);
                 answerTextView.setText(getString(R.string.exchange_rate, 1.0));
+                Log.i(TAG, "onPostExecute: realised fromCurrency = toCurrency - case");
             }
         }
     }
+
 
     //async class for set-up new loaded data to the file
     private class AsyncUpdate extends AsyncTask<Response<ApiResponse>, Void, Response<ApiResponse>>{
@@ -186,10 +177,11 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected Response<ApiResponse> doInBackground(Response<ApiResponse>[] responses) {
             Log.i(TAG, "doInBackground: async set-up new info");
-            Response<ApiResponse> response = responses[0];
 
+            Response<ApiResponse> response = responses[0];
             String file = readFile(dataPath);
             ArrayList arrayList;
+
             //create new obj for stored data
             DataStorageObject dataStorageObject =
                     new DataStorageObject(response.body().getBase() + ""
@@ -268,4 +260,30 @@ public class MainActivity extends AppCompatActivity {
         return text;
     }
 
-}//TODO: more tests, asynch - add progress bar
+    private DataStorageObject findCoincidence(ArrayList<DataStorageObject> list){
+        if(list != null) {
+            //finding coincidence in file
+            for (DataStorageObject obj : list) {
+                //found coincidence
+                if (obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currencyTo)) {
+                    Log.i(TAG, "onClick: found concrete item in file");
+
+                    //up-to-date checking
+                    if (!obj.getDate().equals(currentDate)) {
+                        Log.i(TAG, "onClick: found out-of-currentDate item, deleted them and load new - " + currentDate);
+                        list.remove(obj);
+                        saveFile(dataPath, new Gson().toJson(list));
+                        makeRequest();
+                    } else {//everything correct
+                        Log.i(TAG, "onClick: found correct fresh item, don't need to load new");
+                        return obj;
+                    }
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+
+}
