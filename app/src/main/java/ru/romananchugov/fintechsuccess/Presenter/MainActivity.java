@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -34,6 +33,7 @@ import ru.romananchugov.fintechsuccess.R;
 import ru.romananchugov.fintechsuccess.Service.APIClient;
 
 @SuppressLint("StaticFieldLeak")
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String[] list;//list of dropdown
     private String currencyFrom;
-    private String currentTo;
+    private String currencyTo;
 
     private Type typeOfData;
     private String currentDate;
@@ -85,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                 Log.i(TAG, "onItemSelected(To):" + list[i]);
-                currentTo = list[i];
+                currencyTo = list[i];
             }
 
             @Override
@@ -109,33 +109,33 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private class AsyncAnalyzing extends AsyncTask<Void, Void, Void>{
+    //async class for loading file, check existence of them and analyse them
+    private class AsyncAnalyzing extends AsyncTask<Void, Void, DataStorageObject>{
 
         @Override
         protected void onPreExecute() {
-            if(progressBar.getVisibility() == View.GONE) {
-                progressBar.setVisibility(View.VISIBLE);
-            }
+            progressBar.setVisibility(View.VISIBLE);
+            Log.i(TAG, "onPreExecute: asyncAnalise");
         }
 
         @Override
-        protected Void doInBackground(Void... voids) {
+        protected DataStorageObject doInBackground(Void... voids) {
             Log.i(TAG, "doInBackground: async analise of file existing and first launch, etc.");
             
             String file = readFile(dataPath);
 
             //checking existence and first launch
-            if(file == null && currencyFrom != null && currentTo != null && !currencyFrom.equals(currentTo)){
+            if(file == null && currencyFrom != null && currencyTo != null && !currencyFrom.equals(currencyTo)){
                 Log.i(TAG, "onClick: first launch - create new file");
                 makeRequest();
-            }else{
+            }else if(!currencyFrom.equals(currencyTo)){
                 Log.i(TAG, "onClick: file is existing");
                 ArrayList<DataStorageObject> list = new Gson().fromJson(file, typeOfData);
 
                 if (list != null) {
                     //finding coincidence in file
                     for(DataStorageObject obj: list){
-                        if(obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currentTo)){
+                        if(obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currencyTo)){
                             Log.i(TAG, "onClick: found concrete item in file");
 
                             //up-to-currentDate checking
@@ -146,7 +146,7 @@ public class MainActivity extends AppCompatActivity {
                                 makeRequest();
                             }else{//everything correct
                                 Log.i(TAG, "onClick: found correct fresh item, don't need to load new");
-                                answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
+                                return obj;
                             }
                             return null;
                         }
@@ -161,34 +161,28 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(Void aVoid) {
-            //fake delay
-           new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    progressBar.setVisibility(View.GONE);
-                }
-            }, 1200);
-
+        protected void onPostExecute(DataStorageObject obj) {
+            if(obj != null){
+                answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
+                progressBar.setVisibility(View.GONE);
+            }
         }
     }
 
-    private class AsyncUpdate extends AsyncTask<Response<ApiResponse>, Void, Void>{
+    //async class for set-up new loaded data to the file
+    private class AsyncUpdate extends AsyncTask<Response<ApiResponse>, Void, Response<ApiResponse>>{
 
         @Override
         protected void onPreExecute() {
-            if(progressBar.getVisibility() == View.GONE) {
-                progressBar.setVisibility(View.VISIBLE);
-            }
+            progressBar.setVisibility(View.VISIBLE);
+            Log.i(TAG, "onPreExecute: asyncUpdate ");
+
         }
 
         @Override
-        protected Void doInBackground(Response<ApiResponse>[] responses) {
+        protected Response<ApiResponse> doInBackground(Response<ApiResponse>[] responses) {
             Log.i(TAG, "doInBackground: async set-up new info");
             Response<ApiResponse> response = responses[0];
-
-            answerTextView.setText(getResources().getString(R.string.exchange_rate,
-                               response.body().getRates().getRate()));
 
             String file = readFile(dataPath);
             ArrayList arrayList;
@@ -213,30 +207,26 @@ public class MainActivity extends AppCompatActivity {
                 saveFile(getString(R.string.pref_path), text);
                 Log.i(TAG, "onResponse: added to existing file - " + text);
             }
-            return null;
+            return response;
         }
 
         @Override
-        protected void onPostExecute(Void aVoid) {
-            //fake delay
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    progressBar.setVisibility(View.GONE);
-                }
-            }, 1200);
+        protected void onPostExecute(Response<ApiResponse> response) {
+            answerTextView.setText(getString(R.string.exchange_rate,
+                    response.body().getRates().getRate()));
+
+            progressBar.setVisibility(View.GONE);
         }
     }
 
     public void makeRequest(){
         APIClient apiClient = new APIClient();
-        apiClient.getClient().getJson(currencyFrom, currentTo)
+        apiClient.getClient().getJson(currencyFrom, currencyTo)
                 .enqueue(new Callback<ApiResponse>() {
 
                     @Override
                     public void onResponse(Call<ApiResponse> call, Response<ApiResponse> response) {
                         Log.i(TAG, "onResponse: loaded new element");
-                        
                         new AsyncUpdate().execute(response);
                     }
 
