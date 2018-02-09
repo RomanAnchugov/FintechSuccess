@@ -1,4 +1,4 @@
-package ru.romananchugov.fintechsuccess.Presenter;
+package ru.romananchugov.fintechsuccess.View;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -166,6 +166,10 @@ public class MainActivity extends AppCompatActivity {
                 answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
                 progressBar.setVisibility(View.GONE);
             }
+            if(currencyFrom.equals(currencyTo)){
+                progressBar.setVisibility(View.GONE);
+                answerTextView.setText(getString(R.string.exchange_rate, 1.0));
+            }
         }
     }
 
@@ -219,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void makeRequest(){
+    private void makeRequest(){
         APIClient apiClient = new APIClient();
         apiClient.getClient().getJson(currencyFrom, currencyTo)
                 .enqueue(new Callback<ApiResponse>() {
@@ -237,7 +241,7 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    public void saveFile(String file, String text){
+    private void saveFile(String file, String text){
         try {
             FileOutputStream out = openFileOutput(file , Context.MODE_PRIVATE);
             out.write(text.getBytes());
@@ -248,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public String readFile(String file){
+    private String readFile(String file){
         String text = null;
 
         try {

@@ -5,10 +5,10 @@ package ru.romananchugov.fintechsuccess.Model;
  */
 
 public class DataStorageObject {
-    String from;
-    String to;
-    String date;
-    double value;
+    private String from;
+    private String to;
+    private String date;
+    private double value;
 
     public DataStorageObject(String from, String to, String date, double value) {
         this.from = from;
