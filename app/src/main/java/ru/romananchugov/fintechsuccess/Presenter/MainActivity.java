@@ -1,7 +1,6 @@
 package ru.romananchugov.fintechsuccess.Presenter;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -14,9 +13,13 @@ import android.widget.TextView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -38,10 +41,19 @@ public class MainActivity extends AppCompatActivity {
     private String currencyFrom;
     private String currentTo;
 
+    private Type typeOfData;
+    private String currentDate;
+    private String dataPath;
+
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        typeOfData = new TypeToken<ArrayList<DataStorageObject>>(){}.getType();
+        currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
+                .format(Calendar.getInstance().getTime());
+        dataPath = getString(R.string.pref_path);
 
         list = getResources().getStringArray(R.array.drop_down);
 
@@ -77,56 +89,42 @@ public class MainActivity extends AppCompatActivity {
 
         answerTextView = findViewById(R.id.text_view_answer);
         showExchangeRateButton = findViewById(R.id.button_execute);
+
         showExchangeRateButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                String file = readFile(dataPath);
 
-                SharedPreferences sharedPreferences = getPreferences(Context.MODE_PRIVATE);
-                SharedPreferences.Editor editor = sharedPreferences.edit();
+                //checking existence and first launch
+                if(file == null && currencyFrom != null && currentTo != null && !currencyFrom.equals(currentTo)){
+                    Log.i(TAG, "onClick: first launch - create new file");
+                    makeRequest();
+                }else{
+                    Log.i(TAG, "onClick: file is existing");
+                    ArrayList<DataStorageObject> list = new Gson().fromJson(file, typeOfData);
 
-                //reading prefs
-                SharedPreferences pref = getPreferences(Context.MODE_PRIVATE);
-                String jsonText = pref.getString(getString(R.string.pref_key), "error");
-                java.lang.reflect.Type type = new TypeToken<ArrayList<DataStorageObject>>(){}.getType();
+                    if (list != null) {
+                        for(DataStorageObject obj: list){
+                            if(obj.getFrom().equals(currencyFrom) && obj.getTo().equals(currentTo)){
+                                Log.i(TAG, "onClick: found concrete item in file");
 
-                //checking existence of prefs
-                if(!jsonText.equals("error")) {
-
-                    ArrayList<DataStorageObject> arrayList = new Gson()
-                            .fromJson(jsonText, type);
-                    String date = new SimpleDateFormat("yyyy-MM-dd")
-                            .format(Calendar.getInstance().getTime());//date
-
-                    //finding coincidence with data in pref
-                    for(DataStorageObject obj: arrayList){
-                        if(obj.getFrom().equals(currencyFrom)
-                                && obj.getTo().equals(currentTo)){
-                            Log.i(TAG, "onClick: found concrete item");
-
-                            //date is not fresh
-                            if(!obj.getDate().equals(date)) {
-                                Log.i(TAG, "onClick: this item is out of date - updating");
-                                arrayList.remove(obj);
-                                editor.clear();
-                                editor.putString(getString(R.string.pref_key),
-                                        new Gson().toJson(arrayList));
-                                editor.apply();
-                                editor.commit();
-                                makeRequest();
-                            }else{//date is fresh
-                                Log.i(TAG, "onClick: item is up-to-date(on click if) - just reading from pref");
-                                answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
+                                //up-to-currentDate checking
+                                if(!obj.getDate().equals(currentDate)){
+                                    Log.i(TAG, "onClick: found out-of-currentDate item, deleted them and load new - " + currentDate);
+                                    list.remove(obj);
+                                    saveFile(dataPath, new Gson().toJson(list));
+                                    makeRequest();
+                                }else{//everything correct
+                                    Log.i(TAG, "onClick: found correct fresh item, don't need to load new");
+                                    answerTextView.setText(getString(R.string.exchange_rate, obj.getValue()));
+                                }
+                                return;
                             }
-                            return;
                         }
                     }
 
-                    //if didn't find any coincidences
-                    Log.i(TAG, "onClick: didn't find any coincidences - creating new item in pref");
-                    makeRequest();
-
-                }else if(currencyFrom != null && currentTo != null && !currencyFrom.equals(currentTo)){//first launch
-                    Log.i(TAG, "onClick: first launch of the app - creating new pref's");
+                    //load new element
+                    Log.i(TAG, "onClick: didn't find any coincidences in file, load new");
                     makeRequest();
                 }
             }
@@ -138,41 +136,37 @@ public class MainActivity extends AppCompatActivity {
         APIClient apiClient = new APIClient();
         apiClient.getClient().getJson(currencyFrom, currentTo)
                 .enqueue(new Callback<ApiResponse>() {
+
                     @Override
                     public void onResponse(Call<ApiResponse> call, Response<ApiResponse> response) {
-                        Log.i(TAG, "onResponse: " + response.body().getRates().getRate() + " " + response.toString());
+                        Log.i(TAG, "onResponse: loaded new element");
+
                         answerTextView.setText(getResources().getString(R.string.exchange_rate,
                                 response.body().getRates().getRate()));
 
-                        //reading prefs
-                        SharedPreferences pref = getPreferences(Context.MODE_PRIVATE);
-                        String jsonText = pref.getString(getString(R.string.pref_key), "error");
-                        java.lang.reflect.Type type = new TypeToken<ArrayList<DataStorageObject>>(){}.getType();
-
-                        ArrayList arrayList = null;
-
-                        //checking existence
-                        if(!jsonText.equals("error")) {
-                            arrayList = new Gson().fromJson(jsonText, type);
-                        }else{//first launch
-                            arrayList = new ArrayList();
-                        }
-
-                        //create new obj for pref
+                        String file = readFile(dataPath);
+                        ArrayList arrayList;
+                        //create new obj for stored data
                         DataStorageObject dataStorageObject =
                                 new DataStorageObject(response.body().getBase() + ""
                                         , response.body().getRates().getName() + ""
-                                        , response.body().getDate() + ""
+                                        ,  currentDate
                                         , response.body().getRates().getRate());
 
-                        arrayList.add(dataStorageObject);
-
-                        SharedPreferences.Editor editor = pref.edit();
-                        editor.putString(getString(R.string.pref_key), new Gson().toJson(arrayList));
-                        editor.apply();
-                        editor.commit();
-
-                        Log.i(TAG, "onResponse: " + "added new obj(made request)");
+                        //checking existence and first launch
+                        if(file == null){
+                            arrayList = new ArrayList();
+                            arrayList.add(dataStorageObject);
+                            String text = new Gson().toJson(arrayList);
+                            saveFile(getString(R.string.pref_path), text);
+                            Log.i(TAG, "onResponse: created new file with - " + text);
+                        }else{
+                            arrayList = new Gson().fromJson(file, typeOfData);
+                            arrayList.add(dataStorageObject);
+                            String text = new Gson().toJson(arrayList);
+                            saveFile(getString(R.string.pref_path), text);
+                            Log.i(TAG, "onResponse: added to existing file - " + text);
+                        }
                     }
 
                     @Override
@@ -181,4 +175,32 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
     }
-}
+
+    public void saveFile(String file, String text){
+        try {
+            FileOutputStream out = openFileOutput(file , Context.MODE_PRIVATE);
+            out.write(text.getBytes());
+            out.close();
+            Log.i(TAG, "saveFile: " + text + " saved");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String readFile(String file){
+        String text = null;
+
+        try {
+            FileInputStream in = openFileInput(file);
+            byte[] buffer = new byte[in.available()];
+            in.read(buffer);
+            in.close();
+            text = new String(buffer);
+            Log.i(TAG, "readFile: " + text + " read");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return text;
+    }
+
+}//TODO: more tests, asynch - add progress bar
